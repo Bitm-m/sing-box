@@ -179,6 +179,10 @@ func overrideOutbounds(outbounds []option.Outbound, overrideDialerOptions *optio
 			options := outbound.Options.(*option.SnellOutboundOptions)
 			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
 			outbound.Options = options
+		case C.TypeDirect:
+		default:
+			// every other protocol (ssh, naive, mieru, ...) still dials
+			overrideDialerWrapper(outbound.Options, overrideDialerOptions, tags, providerTag)
 		}
 		parsedOutbounds = append(parsedOutbounds, outbound)
 	}
@@ -200,10 +204,33 @@ func overrideEndpoints(endpoints []option.Endpoint, overrideDialerOptions *optio
 			options := ep.Options.(*option.TailscaleEndpointOptions)
 			options.DialerOptions = overrideDialerOption(options.DialerOptions, overrideDialerOptions, tags, providerTag)
 			ep.Options = options
+		default:
+			overrideDialerWrapper(ep.Options, overrideDialerOptions, tags, providerTag)
 		}
 		parsedEndpoints = append(parsedEndpoints, ep)
 	}
 	return parsedEndpoints
+}
+
+// DNSDialerOptions are the dial fields of override_dialer the subscription
+// DNS servers dial with: everything but detour and the resolvers.
+func DNSDialerOptions(overrideDialerOptions *option.OverrideDialerOptions) option.DialerOptions {
+	if overrideDialerOptions == nil {
+		return option.DialerOptions{}
+	}
+	dialerOverride := *overrideDialerOptions
+	dialerOverride.Detour = nil
+	dialerOverride.DomainResolver = nil
+	dialerOverride.ProviderDomainResolver = nil
+	//nolint:staticcheck
+	dialerOverride.DomainStrategy = nil
+	return overrideDialerOption(option.DialerOptions{}, &dialerOverride, nil, "")
+}
+
+func overrideDialerWrapper(options any, overrideDialerOptions *option.OverrideDialerOptions, tags []string, providerTag string) {
+	if wrapper, isWrapper := options.(option.DialerOptionsWrapper); isWrapper {
+		wrapper.ReplaceDialerOptions(overrideDialerOption(wrapper.TakeDialerOptions(), overrideDialerOptions, tags, providerTag))
+	}
 }
 
 func overrideDialerOption(options option.DialerOptions, overrideDialerOptions *option.OverrideDialerOptions, tags []string, providerTag string) option.DialerOptions {
@@ -489,4 +516,37 @@ func overrideAnyXOptions(options *option.AnyXOutboundOptions, overrideOptions *o
 	if overrideOptions.IdleSessionMinTimeout != nil {
 		options.IdleSessionMinTimeout = *overrideOptions.IdleSessionMinTimeout
 	}
+	if overrideOptions.PseudoVPN != nil {
+		options.PseudoVPN = overridePseudoVPNOption(options.PseudoVPN, overrideOptions.PseudoVPN)
+	}
+}
+
+// overridePseudoVPNOption never mutates the node's own options: subscription
+// options are compared against the previous round to decide what to rebuild.
+func overridePseudoVPNOption(options *option.AnyXPseudoVPNOutboundOptions, overrideOptions *option.OverridePseudoVPNOptions) *option.AnyXPseudoVPNOutboundOptions {
+	if overrideOptions == nil {
+		return options
+	}
+	if options == nil {
+		if overrideOptions.Enabled == nil || !*overrideOptions.Enabled {
+			return nil
+		}
+		options = &option.AnyXPseudoVPNOutboundOptions{}
+	} else {
+		optionsCopy := *options
+		options = &optionsCopy
+	}
+	if overrideOptions.Enabled != nil {
+		options.Enabled = *overrideOptions.Enabled
+	}
+	if overrideOptions.MTU != nil {
+		options.MTU = *overrideOptions.MTU
+	}
+	if overrideOptions.TCPMSSClamping != nil {
+		options.TCPMSSClamping = overrideOptions.TCPMSSClamping
+	}
+	if overrideOptions.UDP != nil {
+		options.UDP = *overrideOptions.UDP
+	}
+	return options
 }

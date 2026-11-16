@@ -118,6 +118,14 @@ func NewProviderLocal(ctx context.Context, router adapter.Router, logFactory log
 		return nil, err
 	}
 	provider.watcher = watcher
+	// last: a registered provider DNS server must not outlive a failed
+	// constructor
+	overrideDialer, err := provider.EnableProviderDNS(options.OverrideDialer, parser.DNSDialerOptions(options.OverrideDialer))
+	if err != nil {
+		_ = watcher.Close()
+		return nil, err
+	}
+	provider.overrideDialer = overrideDialer
 	return provider, nil
 }
 
@@ -294,6 +302,9 @@ func (s *ProviderLocal) reloadFile(path string) error {
 	}
 	if err = s.writeOverrides(path, content, fileInfo, outboundOpts, endpointOpts); err != nil {
 		return E.Cause(err, "save local provider overrides")
+	}
+	if s.ProviderDNSEnabled() {
+		s.UpdateDNSServers(parser.ParseSubscriptionDNS(parser.ContextWithWarnHandler(s.ctx, s.logger.Warn), string(content)))
 	}
 	s.UpdateOutbounds(s.lastOutOpts, outboundOpts)
 	s.lastOutOpts = outboundOpts
