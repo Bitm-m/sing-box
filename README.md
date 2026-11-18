@@ -635,7 +635,7 @@ wazero 仅在 amd64 与 arm64 架构上以编译方式执行，其他架构使�
 
 手动运行工作流时，版本号可留空：系统会使用当前提交可到达的最近版本标签；没有版本标签时使用仓库中的 `release/BASE_VERSION`。同步到新的上游版本时应一并更新该文件。是否标记为预发布由工作流选项决定；标签触发时根据 `alpha`、`beta` 或 `rc` 判断。
 
-命令行内核文件及压缩包格式为 `sing-box-<显示版本>-<提交哈希>-<系统>_<架构>[<后缀>]`；Android 使用 `android-arm64-v8a`，例如 `sing-box-1.15-alpha.13-149ad84c8-android-arm64-v8a.tar.gz`。图形客户端使用自己的 SFA/SFW/SFL 前缀并附带相同显示版本与哈希。内核报告的版本仍保留完整上游版本和 `-zero` 后缀；客户端内部版本保持原有格式。相同版本和提交会生成相同标签，已有同名 Release 时构建会停止，不会覆盖已有发布。
+命令行内核压缩包的外层文件名格式为 `sing-box-<显示版本>-<提交哈希>-<系统>_<架构>[<后缀>]`；Android 使用 `android-arm64-v8a`，例如 `sing-box-1.15-alpha.13-149ad84c8-android-arm64-v8a.tar.gz`。所有压缩包内的命令行内核统一命名为 `sing-box`，Windows 为 `sing-box.exe`。图形客户端使用自己的 SFA/SFW/SFL 前缀并附带相同显示版本与哈希。内核报告的版本仍保留完整上游版本和 `-zero` 后缀；客户端内部版本保持原有格式。相同版本和提交会生成相同标签，已有同名 Release 时构建会停止，不会覆盖已有发布。
 
 Zashboard 等 Clash API 面板显示的内核版本包含源码提交的前 9 位，例如 `1.15.0-alpha.13-820679ca4-zero`；这不会改变内核及客户端使用的内部版本。自定义构建若禁用 Go 的 VCS 信息，可通过 linker flag `-X github.com/sagernet/sing-box/constant.Commit=<完整提交哈希>` 提供提交号；没有可用提交号时仍显示原版本。
 
