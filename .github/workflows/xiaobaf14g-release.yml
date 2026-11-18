@@ -308,15 +308,20 @@ jobs:
             fi
           done
 
-      # pigz 并行压缩，保留 -9 最高压缩率；归档内文件名与产物同名。
+      # pigz 并行压缩并保留 -9 最高压缩率；归档内核统一命名为 sing-box（Windows 为 sing-box.exe）。
       - name: Pack with tar.gz
         run: |
           set -euo pipefail
           command -v pigz >/dev/null || sudo apt-get install -y --no-install-recommends pigz >/dev/null
           cd dist
           for BIN in sing-box-*; do
-            tar cf - "$BIN" | pigz -9 > "${BIN%.exe}.tar.gz"
-            rm -f "$BIN"
+            ARCHIVE_BIN=sing-box
+            if [[ "$BIN" == *.exe ]]; then
+              ARCHIVE_BIN=sing-box.exe
+            fi
+            cp "$BIN" "$ARCHIVE_BIN"
+            tar cf - "$ARCHIVE_BIN" | pigz -9 > "${BIN%.exe}.tar.gz"
+            rm -f "$BIN" "$ARCHIVE_BIN"
           done
           ls -lh
 
@@ -418,8 +423,13 @@ jobs:
           command -v pigz >/dev/null || sudo apt-get install -y --no-install-recommends pigz >/dev/null
           cd dist
           for BIN in sing-box-*; do
-            tar cf - "$BIN" | pigz -9 > "${BIN%.exe}.tar.gz"
-            rm -f "$BIN"
+            ARCHIVE_BIN=sing-box
+            if [[ "$BIN" == *.exe ]]; then
+              ARCHIVE_BIN=sing-box.exe
+            fi
+            cp "$BIN" "$ARCHIVE_BIN"
+            tar cf - "$ARCHIVE_BIN" | pigz -9 > "${BIN%.exe}.tar.gz"
+            rm -f "$BIN" "$ARCHIVE_BIN"
           done
           ls -lh
 
@@ -540,9 +550,9 @@ jobs:
             "$STRIP" --strip-all sing-box-android-arm64-v8a
             ls -lh sing-box-android-arm64-v8a
             NAME="sing-box-${ARTIFACT_VERSION}-android-arm64-v8a${VARIANT}"
-            mv sing-box-android-arm64-v8a "$NAME"
-            tar cf - "$NAME" | pigz -9 > "dist/${NAME}.tar.gz"
-            rm -f "$NAME"
+            cp sing-box-android-arm64-v8a dist/sing-box
+            tar cf - -C dist sing-box | pigz -9 > "dist/${NAME}.tar.gz"
+            rm -f sing-box-android-arm64-v8a dist/sing-box
           done
           ls -lh dist
 
@@ -563,9 +573,9 @@ jobs:
             "$STRIP" --strip-all sing-box-android-arm64-v8a
             ls -lh sing-box-android-arm64-v8a
             local name="sing-box-${ARTIFACT_VERSION}-android-arm64-v8a${variant}"
-            mv sing-box-android-arm64-v8a "$name"
-            tar cf - "$name" | pigz -9 > "dist/${name}.tar.gz"
-            rm -f "$name"
+            cp sing-box-android-arm64-v8a dist/sing-box
+            tar cf - -C dist sing-box | pigz -9 > "dist/${name}.tar.gz"
+            rm -f sing-box-android-arm64-v8a dist/sing-box
           }
           # 每个实验版独立编译：一个失败时继续编译其余的，最后让步骤失败。
           FAILED=()
@@ -580,7 +590,7 @@ jobs:
             if [ "$STATUS" -ne 0 ]; then
               FAILED+=("$VARIANT")
               echo "::error::android/arm64${VARIANT} experimental build failed"
-              rm -f sing-box-android-arm64-v8a "sing-box-${ARTIFACT_VERSION}-android-arm64-v8a${VARIANT}" "dist/sing-box-${ARTIFACT_VERSION}-android-arm64-v8a${VARIANT}.tar.gz"
+              rm -f sing-box-android-arm64-v8a dist/sing-box "dist/sing-box-${ARTIFACT_VERSION}-android-arm64-v8a${VARIANT}.tar.gz"
             fi
             echo "::endgroup::"
           done

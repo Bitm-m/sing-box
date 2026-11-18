@@ -33,6 +33,7 @@ class ReleasePackagingTest(unittest.TestCase):
         (self.dir / "release").mkdir()
         (self.dir / "release" / "LDFLAGS").write_text("")
         (self.dir / "release" / "DEFAULT_BUILD_TAGS_OTHERS").write_text("with_quic,with_naive_outbound,with_clash_api\n")
+        (self.dir / "release" / "DEFAULT_BUILD_TAGS_WINDOWS").write_text("with_quic,with_naive_outbound,with_clash_api\n")
         (self.bin / "go").write_text('''#!/usr/bin/env bash
 set -eu
 printf '%s\\n' "$*" >> "$PWD/go-log"
@@ -59,12 +60,14 @@ fi
                                 cwd=self.dir, env=dict(self.env, **env), capture_output=True)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def assert_archive(self, name):
+    def assert_archive(self, name, binary_name="sing-box"):
         archive = self.dir / "dist" / f"{name}.tar.gz"
         self.assertTrue(archive.exists(), archive)
         with tarfile.open(archive, "r:gz") as tar:
-            self.assertEqual(tar.getnames(), [name])
-            self.assertEqual(tar.extractfile(name).read(), b"binary")
+            self.assertEqual(tar.getnames(), [binary_name])
+            binary = tar.extractfile(binary_name)
+            self.assertIsNotNone(binary)
+            self.assertEqual(binary.read(), b"binary")
 
     def test_desktop_and_experimental_binary_names(self):
         self.run_step("desktop", "Build binaries")
@@ -77,6 +80,12 @@ fi
         self.assertIn(f"constant.Version={VERSION}", (self.dir / "go-log").read_text())
         self.assertIn("constant.Commit=149ad84c81234567890123456789012345678901", (self.dir / "go-log").read_text())
         self.assertIn("constant.BuildTime=1792847141", (self.dir / "go-log").read_text())
+
+    def test_windows_archive_contains_standard_executable_name(self):
+        self.run_step("desktop", "Build binaries", GOOS="windows", GOARCH="amd64",
+                      TAGS_SRC="windows", EXT=".exe", EBPF="false")
+        self.run_step("desktop", "Pack with tar.gz")
+        self.assert_archive(f"sing-box-{ARTIFACT_VERSION}-windows_amd64", "sing-box.exe")
 
     def test_android_normal_and_experimental_archive_names(self):
         ndk = self.dir / "ndk" / "toolchains/llvm/prebuilt/linux-x86_64/bin"
