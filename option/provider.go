@@ -229,6 +229,15 @@ type _ProviderDomainResolverOptions struct {
 	Resolver         string         `json:"resolver,omitempty" reference:"dns_server"`
 	ResolverStrategy DomainStrategy `json:"resolver_strategy,omitempty"`
 	OutboundStrategy DomainStrategy `json:"outbound_strategy,omitempty"`
+	// Fallback lets Resolver answer for the nodes when the subscription DNS
+	// fails. A subscription whose private DNS returns addresses only the
+	// nodes' network can use disables it. Default true.
+	Fallback *bool `json:"fallback,omitempty"`
+	// UseNameserver takes the subscription's general DNS when it names no DNS
+	// for its nodes: Clash dns.nameserver without proxy-server-nameserver,
+	// sing-box dns.final (else the first server) without
+	// route.default_domain_resolver. Default true.
+	UseNameserver *bool `json:"use_nameserver,omitempty"`
 }
 
 // ProviderDomainResolverOptions accepts `true` / `false` or the object form.
@@ -241,8 +250,20 @@ func (o *ProviderDomainResolverOptions) IsEnabled() bool {
 	return o.Enabled == nil || *o.Enabled
 }
 
+// NameserverEnabled reports whether the subscription's general DNS servers
+// are used when it names no DNS servers for its nodes.
+func (o *ProviderDomainResolverOptions) NameserverEnabled() bool {
+	return o == nil || o.UseNameserver == nil || *o.UseNameserver
+}
+
+// FallbackEnabled reports whether the resolver answers when the subscription
+// DNS fails.
+func (o *ProviderDomainResolverOptions) FallbackEnabled() bool {
+	return o == nil || o.Fallback == nil || *o.Fallback
+}
+
 func (o ProviderDomainResolverOptions) MarshalJSON() ([]byte, error) {
-	if o.Resolver == "" && o.ResolverStrategy == DomainStrategy(C.DomainStrategyAsIS) && o.OutboundStrategy == DomainStrategy(C.DomainStrategyAsIS) {
+	if o.Resolver == "" && o.ResolverStrategy == DomainStrategy(C.DomainStrategyAsIS) && o.OutboundStrategy == DomainStrategy(C.DomainStrategyAsIS) && o.Fallback == nil && o.UseNameserver == nil {
 		return json.Marshal(o.IsEnabled())
 	}
 	return json.Marshal(_ProviderDomainResolverOptions(o))
@@ -254,6 +275,7 @@ func (o *ProviderDomainResolverOptions) UnmarshalJSON(content []byte) error {
 		*o = ProviderDomainResolverOptions{Enabled: &enabled}
 		return nil
 	}
+	*o = ProviderDomainResolverOptions{}
 	return json.Unmarshal(content, (*_ProviderDomainResolverOptions)(o))
 }
 

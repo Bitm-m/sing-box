@@ -81,6 +81,15 @@ for compatibility; duration strings such as `30s` and `5m` are also accepted.
 The value must be at least `5s` and is rounded up to whole seconds for the
 kernel data plane.
 
+### udp_fragment
+
+Allow transparent UDP listeners to fragment oversized datagrams before they
+are returned through the eBPF inbound. The default is `false`. This applies to
+the generated proxy-side UDP reply path; it does not make fragmented packets
+arriving at an interception hook eligible for interception. IPv4 fragments and
+non-atomic IPv6 fragments still bypass when a complete transport tuple is not
+available.
+
 ### tc_priority
 
 TC filter priority from 1 through 65535. Default is `1`. Change it only when
@@ -209,9 +218,50 @@ IPv6 `fd7a:115c:a1e0::/48`) intercepted so tailnet traffic can reach a
 
 ### local.bypass_rule_set
 
-Rule sets whose destination IP CIDRs bypass the local data plane. Non-IP rules
-are ignored. This policy is independent from `shared.bypass_rule_set` and is
-updated transactionally across the active local backends.
+Rule sets whose matching traffic bypasses the proxy: it leaves directly instead
+of being routed. Every rule type is supported and matches exactly as in a route
+rule. This policy is independent from `shared.bypass_rule_set`.
+
+Each rule is enforced at the cheapest layer that can decide it exactly:
+
+* A rule whose only condition is the destination address (`ip_cidr` and the
+  domain items `domain`, `domain_suffix`, `domain_keyword`, `domain_regex`,
+  AdGuard domains, which a rule ORs together; logical `or` rules are split the
+  same way) is enforced by the kernel. Its CIDRs go into the data plane's
+  bypass map directly. Its domains are learned: when sing-box's DNS answers a
+  matching name with real A/AAAA records, those addresses are added to the
+  same map for the record TTL (at least 1 minute, at most 1 hour, up to 16384
+  addresses per scope), so later connections never enter sing-box. Bypassing
+  an address bypasses every site behind it, so only addresses exclusive to
+  matching domains are learned: an address that sing-box DNS also returned
+  for any other name (a CDN edge serving many sites) is treated as shared for
+  24 hours, withdrawn from the kernel before that answer reaches its client,
+  and decided per connection in userspace instead.
+* Any other rule (ports, `network`, process, package or user, source address,
+  logical `and`, `invert`, or an address condition combined with any of these)
+  cannot be decided before the connection exists. Such connections are
+  intercepted and matched in userspace against the whole rule set before any
+  route rule, with the process and the domain the connection names: the FakeIP
+  domain, else the sniffed TLS/HTTP/QUIC host, else (for connections carrying
+  no host) the DNS-mapped or learned domain. An address-derived domain never
+  overrides a sniffed host, because a shared address maps back to whichever
+  site resolved it last. A match leaves through a built-in direct outbound, still visible in
+  the Clash API with rule `ebpf local.bypass_rule_set`.
+
+Userspace matching also covers the first connections made before a learned
+address reaches the kernel and domains resolved without sing-box (for example
+DNS-over-HTTPS in the application). Domain learning only sees DNS that sing-box
+answers, so `dns_mode: hijack` gives the best coverage: an address shared with
+a site resolved elsewhere cannot be recognized as shared, which is why learned
+addresses expire with their TTL. A domain answered with
+a FakeIP address is never learned, since the FakeIP range stays intercepted:
+return real addresses for such domains through a DNS rule if they should
+bypass in the kernel.
+
+The kernel policy is updated transactionally across the active local
+backends. Rule-set callbacks and learned addresses only queue a change; the
+policy worker coalesces bursts and performs the kernel map transaction outside
+the callback.
 
 ### local.include_uid
 
@@ -324,14 +374,18 @@ Bypasses private and special-use destinations. Default is `true`.
 ### shared.bypass_exclude
 
 Like `local.bypass_exclude`, but for the shared data plane: CIDR prefixes
-that are force-intercepted ahead of every shared bypass decision. Multiple
-IPv4 and IPv6 prefixes are supported, independently of `local.bypass_exclude`.
+that are force-intercepted ahead of every shared bypass decision. Multiple IPv4
+and IPv6 prefixes are accepted. The set is independent from the FakeIP
+prefixes; overlapping prefixes are resolved by the normal final-action policy.
 
 ### shared.bypass_rule_set
 
-Rule sets whose destination IP CIDRs bypass the shared data plane. Non-IP rules
-are ignored. This policy is independent from `local.bypass_rule_set` and is
-updated transactionally across the active shared backends.
+Same as `local.bypass_rule_set`, for the shared data plane: kernel-enforced
+CIDRs and learned addresses bypass it, and every other rule is matched in
+userspace for intercepted clients, whose matching connections are then made
+directly by this device. This policy is independent from
+`local.bypass_rule_set` and is updated transactionally across the active
+shared backends.
 
 ### shared.include_source_cidr
 
@@ -390,6 +444,25 @@ For local socket assignment and shared `socket_assign`, the response also report
 TCX/clsact attachment mode, SOCKMAP/direct listener lookup, delivery interface,
 policy-routing values, active/retired resource counts, health/reconcile times,
 and a network generation that increments at managed handover boundaries.
+
+The local self-bypass fields report decision, producer, visibility, cleanup,
+reclaim, and attachment independently. Local cgroup prefers
+`local_self_bypass_decision_backend=direct_tgid` with no per-socket producer or
+cleanup. If the direct object does not load, local cgroup uses the cookie
+fallback. Local socket assignment first tries `sk_storage` visibility with a
+cookie shadow; if its representative TC object does not load, visibility is
+`cookie_hash`. The producer is
+`cgroup_sock_create`, `cgroup_addr`, or `userspace_control`, while cleanup is
+`sk_storage`, `socket_release`, or `userspace_unregister`. Attachment is `bpf_link`,
+`legacy_attach`, `mixed`, or `none`. `local_self_bypass_fallback_reason`
+explains a capability or object-load fallback. `proc_fd_reclaim` is reported by
+`local_self_bypass_reclaim_backend` only as map-full recovery; its attempts,
+reclaimed sockets, failures, and last run have separate diagnostic fields.
+Userspace storage write failures and cookie fallbacks also have separate
+diagnostic counters.
+The implementation does not use `SO_MARK`; it avoids conflicts with Android
+`netd`, policy routing, and firewall marks. When cgroup hooks are unavailable,
+the userspace socket-cookie map is used as the compatibility fallback.
 
 The diagnostics response carries a response-level `schemaVersion`, including
 when no eBPF inbound is running. Clients should use that value to version the

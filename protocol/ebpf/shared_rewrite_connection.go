@@ -51,6 +51,7 @@ func (s *sharedRewrite) NewConnection(ctx context.Context, conn net.Conn, metada
 	onClose = N.AppendClose(onClose, func(error) {
 		s.releaseFlow(flow)
 	})
+	metadata.PreRouteBypass = s.inbound.preRouteBypass(true)
 	s.inbound.router.RouteConnectionEx(ctx, conn, metadata, onClose)
 }
 
@@ -141,13 +142,14 @@ func (s *sharedRewrite) NewPacketConnectionEx(ctx context.Context, conn N.Packet
 	if clientState, loaded := s.sharedUDPClientTable.load(key); keyLoaded && loaded {
 		metadata.SourceMACAddress = clientState.sourceMACAddress()
 	}
+	metadata.PreRouteBypass = s.inbound.preRouteBypass(true)
 	s.inbound.router.RoutePacketConnectionEx(ctx, conn, metadata, onClose)
 }
 
 func (s *sharedRewrite) preparePacketConnection(key udpSessionKey, source M.Socksaddr, destination M.Socksaddr, _ any) (bool, context.Context, N.PacketWriter, N.CloseHandlerFunc) {
 	ctx := log.ContextWithNewID(s.inbound.ctx)
 	ctx = context.WithValue(ctx, udpNATContextKey{}, key)
-	clientState := s.sharedUDPClientTable.loadOrCreate(key)
+	clientState := s.sharedUDPClientTable.claimNATState(key)
 	writer := &sharedPacketWriter{
 		sharedRewrite: s,
 		key:           key,

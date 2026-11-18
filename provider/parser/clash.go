@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/pem"
+	"fmt"
 	"net/netip"
 	"sort"
 	"strconv"
@@ -1297,7 +1298,7 @@ func (o shadowsocksPluginOptionsBuilder) Build() string {
 		if value == nil {
 			continue
 		}
-		opts = append(opts, F.ToString(key, "=", value))
+		opts = append(opts, key+"="+clashValueString(value))
 	}
 	return strings.Join(opts, ";")
 }
@@ -1347,6 +1348,19 @@ func clashSnellNetworks(udpEnabled bool) option.NetworkList {
 	return option.NetworkList(strings.Join([]string{N.NetworkTCP, N.NetworkUDP}, "\n"))
 }
 
+// clashValueString renders a YAML value of any shape; a subscription may put
+// a list or a map where a scalar is expected.
+func clashValueString(value any) string {
+	switch value := value.(type) {
+	case string:
+		return value
+	case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, float32, float64:
+		return F.ToString(value)
+	default:
+		return fmt.Sprint(value)
+	}
+}
+
 func clashStringOption(options map[string]any, key string) string {
 	if options == nil {
 		return ""
@@ -1355,7 +1369,7 @@ func clashStringOption(options map[string]any, key string) string {
 	if !loaded || value == nil {
 		return ""
 	}
-	return F.ToString(value)
+	return clashValueString(value)
 }
 
 func clashPluginName(plugin string) string {
@@ -1403,7 +1417,7 @@ func clashStringListOption(options map[string]any, key string) []string {
 	values, _ := options[key].([]any)
 	var result []string
 	for _, value := range values {
-		result = append(result, F.ToString(value))
+		result = append(result, clashValueString(value))
 	}
 	return result
 }

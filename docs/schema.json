@@ -20359,6 +20359,12 @@
                 },
                 "outbound_strategy": {
                   "$ref": "#/$defs/DomainStrategy"
+                },
+                "fallback": {
+                  "type": "boolean"
+                },
+                "use_nameserver": {
+                  "type": "boolean"
                 }
               },
               "additionalProperties": false
