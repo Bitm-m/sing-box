@@ -60,7 +60,13 @@ def resolve_range(tag):
     if not previous:
         # 只认本仓库的当前和旧版 release tag，忽略同步进来的上游 tag。
         try:
-            previous = git("describe", "--tags", "--abbrev=0", "--match", "sing-box-*", "--match", "v*-xiaobaf14g*", f"{target}^").strip()
+            previous = git(
+                "describe", "--tags", "--abbrev=0",
+                "--match", "sing-box-*",  # legacy release tags
+                "--match", "v*-xiaobaf14g*",  # historical fork tags
+                "--match", "v*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]",
+                f"{target}^",
+            ).strip()
         except subprocess.CalledProcessError:
             previous = ""
     return target, previous

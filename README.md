@@ -721,7 +721,7 @@ wazero 仅在 amd64 与 arm64 架构上以编译方式执行，其他架构使�
 
 ## 发布产物
 
-推送 `v*` 标签或手动触发 `xiaobaf14g-release.yml` 工作流后，将构建产物并发布至 [Releases](https://github.com/MiChongs/sing-box/releases)。Release 标签和标题格式为 `sing-box-<显示版本>-<9位源码提交哈希>`，例如 `sing-box-1.15-alpha.13-149ad84c8`。显示版本省略零补丁号（`1.15.0-alpha.13` 显示为 `1.15-alpha.13`），非零补丁号保留。推送的原始 `v*` 标签不会被修改。
+推送 `v<版本>` 标签（如 `v1.15.0-alpha.13`）或手动触发 `xiaobaf14g-release.yml` 工作流后，将构建产物并发布至 [Releases](https://github.com/MiChongs/sing-box/releases)。Release 标签和标题格式为 `v<显示版本>-<9位源码提交哈希>`，例如 `v1.15-alpha.13-149ad84c8`。显示版本省略零补丁号（`1.15.0-alpha.13` 显示为 `1.15-alpha.13`），非零补丁号保留。推送的原始 `v*` 标签不会被修改；自动生成的带提交哈希标签只是发布标识，再次推送不会触发新的构建。
 
 手动运行工作流时，版本号可留空：系统会使用当前提交可到达的最近版本标签；没有版本标签时使用仓库中的 `release/BASE_VERSION`。同步到新的上游版本时应一并更新该文件。是否标记为预发布由工作流选项决定；标签触发时根据 `alpha`、`beta` 或 `rc` 判断。
 

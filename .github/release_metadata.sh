@@ -4,9 +4,13 @@ set -euo pipefail
 if [[ "$EVENT" == "workflow_dispatch" ]]; then
   VERSION="${INPUT_VERSION#v}"
   if [[ -z "$VERSION" ]]; then
-    # Automatic sing-box-* releases are not version baselines. Use a reachable
-    # upstream/fork v-tag or the checked-in source baseline instead.
-    base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' --exclude '*-auto.*' --exclude 'v0.0.0*' HEAD 2>/dev/null || true)
+    # Commit-hashed v-tags are release identifiers, not version baselines. Use a
+    # reachable upstream/fork version tag or the checked-in source baseline.
+    base=$(git describe --tags --abbrev=0 --match 'v[0-9]*' \
+      --exclude '*-auto.*' \
+      --exclude 'v0.0.0*' \
+      --exclude 'v*-[0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f][0-9a-f]' \
+      HEAD 2>/dev/null || true)
     base="${base#v}"
     base="${base%%+*}"
     if [[ ! "$base" =~ ^[0-9]+\.[0-9]+\.[0-9]+([.-][0-9A-Za-z.-]+)?$ ]]; then
@@ -26,6 +30,13 @@ if [[ "$EVENT" == "workflow_dispatch" ]]; then
   SKIP_ANDROID="$INPUT_SKIP"
   SKIP_GUI="$INPUT_SKIP_GUI"
 else
+  # Generated release tags (v<display version>-<9-hex commit>) live in the same
+  # v* namespace as trigger tags, but they identify an existing release and
+  # must not start a new build.
+  if [[ "$REF_NAME" =~ ^v.+-[0-9a-f]{9}$ ]]; then
+    echo '::error::Commit-hashed release tags are release identifiers, not build triggers; push a version tag such as v1.15.0-alpha.13 instead.' >&2
+    exit 1
+  fi
   VERSION="${REF_NAME#v}"
   if [[ "$VERSION" =~ -(alpha|beta|rc) ]]; then
     PRE=true
@@ -51,7 +62,7 @@ fi
 COMMIT=$(git rev-parse --verify HEAD^{commit})
 SHORT_COMMIT="${COMMIT:0:9}"
 ARTIFACT_VERSION="${DISPLAY_VERSION}-${SHORT_COMMIT}"
-TAG="sing-box-${ARTIFACT_VERSION}"
+TAG="v${ARTIFACT_VERSION}"
 if ! git check-ref-format "refs/tags/$TAG"; then
   echo '::error::Invalid derived release tag.' >&2
   exit 1
