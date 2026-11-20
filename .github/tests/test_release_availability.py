@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / "check_release_availability.sh"
-TAG = "sing-box-1.15-alpha.13-123456789"
+TAG = "v1.15-alpha.13-123456789"
 
 
 class ReleaseAvailabilityTest(unittest.TestCase):

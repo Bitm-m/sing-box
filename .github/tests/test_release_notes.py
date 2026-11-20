@@ -49,7 +49,7 @@ class ReleaseNotesTest(unittest.TestCase):
             builds = root / "builds"
             builds.mkdir()
             (builds / "sing-box-1.15-alpha.13-149ad84c8-android-arm64-v8a.tar.gz").touch()
-            env = dict(os.environ, TAG="sing-box-1.15-alpha.13-149ad84c8", VERSION="1.15.0-alpha.13",
+            env = dict(os.environ, TAG="v1.15-alpha.13-149ad84c8", VERSION="1.15.0-alpha.13",
                        ARTIFACT_VERSION="1.15-alpha.13-149ad84c8", BUILDS_DIR=str(builds),
                        IS_PRE="true", SKIP_ANDROID="false", SKIP_GUI="true", ANDROID_RES="success",
                        EXPERIMENTAL_RES="success", ANDROID_EXPERIMENTAL="success", PREV="")
@@ -66,15 +66,18 @@ class ReleaseNotesTest(unittest.TestCase):
             git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-qm", "first")
             git("tag", "v1.15.0-alpha.13-xiaobaf14g.8-auto.42.1")
             git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-qm", "second")
+            git("tag", "v1.15.0")  # An upstream version tag is not a generated release tag.
+            git("tag", "v1.15-alpha.13-123456789")
+            git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-qm", "third")
             original_cwd = os.getcwd()
             try:
                 os.chdir(tmp)
-                _, previous = notes.resolve_range("sing-box-future")
-                self.assertEqual(previous, "v1.15.0-alpha.13-xiaobaf14g.8-auto.42.1")
-                git("tag", "sing-box-1.15-alpha.13-123456789")
-                git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-qm", "third")
-                _, previous = notes.resolve_range("sing-box-future")
-                self.assertEqual(previous, "sing-box-1.15-alpha.13-123456789")
+                _, previous = notes.resolve_range("v-future")
+                self.assertEqual(previous, "v1.15-alpha.13-123456789")
+                git("tag", "sing-box-1.15-alpha.13-987654321")
+                git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-qm", "fourth")
+                _, previous = notes.resolve_range("v-future")
+                self.assertEqual(previous, "sing-box-1.15-alpha.13-987654321")
             finally:
                 os.chdir(original_cwd)
 
