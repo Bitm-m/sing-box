@@ -15,7 +15,7 @@ class ReleaseNotesTest(unittest.TestCase):
     def test_scan_new_and_legacy_core_names_and_clients(self):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp)
-            version = "1.15-alpha.13-149ad84c8"
+            version = "1.15.0-alpha.13-149ad84c8"
             for name in (
                 f"sing-box-{version}-android_arm64.tar.gz",
                 f"sing-box-{version}-android-arm64-v8a.tar.gz",
@@ -48,9 +48,9 @@ class ReleaseNotesTest(unittest.TestCase):
                             "commit", "--allow-empty", "-qm", "feat: example"], cwd=root, check=True)
             builds = root / "builds"
             builds.mkdir()
-            (builds / "sing-box-1.15-alpha.13-149ad84c8-android-arm64-v8a.tar.gz").touch()
-            env = dict(os.environ, TAG="v1.15-alpha.13-149ad84c8", VERSION="1.15.0-alpha.13",
-                       ARTIFACT_VERSION="1.15-alpha.13-149ad84c8", BUILDS_DIR=str(builds),
+            (builds / "sing-box-1.15.0-alpha.13-149ad84c8-android-arm64-v8a.tar.gz").touch()
+            env = dict(os.environ, TAG="v1.15.0-alpha.13-149ad84c8", VERSION="1.15.0-alpha.13",
+                       ARTIFACT_VERSION="1.15.0-alpha.13-149ad84c8", BUILDS_DIR=str(builds),
                        IS_PRE="true", SKIP_ANDROID="false", SKIP_GUI="true", ANDROID_RES="success",
                        EXPERIMENTAL_RES="success", ANDROID_EXPERIMENTAL="success", PREV="")
             result = subprocess.run(["python3", str(spec.origin)], cwd=root, env=env,
@@ -67,17 +67,17 @@ class ReleaseNotesTest(unittest.TestCase):
             git("tag", "v1.15.0-alpha.13-xiaobaf14g.8-auto.42.1")
             git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-qm", "second")
             git("tag", "v1.15.0")  # An upstream version tag is not a generated release tag.
-            git("tag", "v1.15-alpha.13-123456789")
+            git("tag", "v1.15.0-alpha.13-123456789")
             git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-qm", "third")
             original_cwd = os.getcwd()
             try:
                 os.chdir(tmp)
                 _, previous = notes.resolve_range("v-future")
-                self.assertEqual(previous, "v1.15-alpha.13-123456789")
-                git("tag", "sing-box-1.15-alpha.13-987654321")
+                self.assertEqual(previous, "v1.15.0-alpha.13-123456789")
+                git("tag", "sing-box-1.15.0-alpha.13-987654321")
                 git("-c", "user.name=Test", "-c", "user.email=test@example.com", "commit", "--allow-empty", "-qm", "fourth")
                 _, previous = notes.resolve_range("v-future")
-                self.assertEqual(previous, "sing-box-1.15-alpha.13-987654321")
+                self.assertEqual(previous, "sing-box-1.15.0-alpha.13-987654321")
             finally:
                 os.chdir(original_cwd)
 

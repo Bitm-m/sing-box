@@ -34,8 +34,8 @@ class ReleaseMetadataTest(unittest.TestCase):
     def test_no_tag_uses_baseline_and_commit(self):
         result, values = self.run_meta()
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(values["tag"], f"v1.15-alpha.13-{self.sha}")
-        self.assertEqual(values["artifact_version"], f"1.15-alpha.13-{self.sha}")
+        self.assertEqual(values["tag"], f"v1.15.0-alpha.13-{self.sha}")
+        self.assertEqual(values["artifact_version"], f"1.15.0-alpha.13-{self.sha}")
         self.assertEqual(values["version"], "1.15.0-alpha.13")
         self.assertEqual(values["prerelease"], "true")
         _, retry = self.run_meta(RUN_ID="456", RUN_ATTEMPT="2")
@@ -46,7 +46,7 @@ class ReleaseMetadataTest(unittest.TestCase):
         self.git("tag", f"v1.99.1-alpha.1-{self.sha}")
         _, values = self.run_meta()
         self.assertEqual(values["version"], "1.15.0-alpha.13")
-        self.assertEqual(values["tag"], f"v1.15-alpha.13-{self.sha}")
+        self.assertEqual(values["tag"], f"v1.15.0-alpha.13-{self.sha}")
 
     def test_invalid_base_fails(self):
         (self.repo / "release" / "BASE_VERSION").write_text("0.0.0\n")
@@ -66,10 +66,10 @@ class ReleaseMetadataTest(unittest.TestCase):
     def test_fork_and_auto_suffix_are_removed(self):
         result, values = self.run_meta(INPUT_VERSION="1.15.0-alpha.13-xiaobaf14g.8-auto.456.1")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(values["tag"], f"v1.15-alpha.13-{self.sha}")
+        self.assertEqual(values["tag"], f"v1.15.0-alpha.13-{self.sha}")
         self.assertEqual(values["version"], "1.15.0-alpha.13")
         _, values = self.run_meta(EVENT="push", REF_NAME="v1.15.0-alpha.13-xiaobaf14g.8")
-        self.assertEqual(values["tag"], f"v1.15-alpha.13-{self.sha}")
+        self.assertEqual(values["tag"], f"v1.15.0-alpha.13-{self.sha}")
         self.assertEqual(values["version"], "1.15.0-alpha.13")
         _, values = self.run_meta(INPUT_VERSION="1.0.0.0-alpha.1")
         self.assertEqual(values["artifact_version"], f"1.0.0.0-alpha.1-{self.sha}")
@@ -84,14 +84,20 @@ class ReleaseMetadataTest(unittest.TestCase):
 
     def test_zero_patch_and_nonzero_patch(self):
         _, values = self.run_meta(INPUT_VERSION="2.3.0")
-        self.assertEqual(values["artifact_version"], f"2.3-{self.sha}")
+        self.assertEqual(values["tag"], f"v2.3.0-{self.sha}")
+        self.assertEqual(values["artifact_version"], f"2.3.0-{self.sha}")
         self.assertEqual(values["version"], "2.3.0")
         _, values = self.run_meta(INPUT_VERSION="2.3.10-rc.1")
         self.assertEqual(values["artifact_version"], f"2.3.10-rc.1-{self.sha}")
+        # A version that already omits the patch component gets it completed.
+        _, values = self.run_meta(INPUT_VERSION="2.3")
+        self.assertEqual(values["tag"], f"v2.3.0-{self.sha}")
+        self.assertEqual(values["artifact_version"], f"2.3.0-{self.sha}")
+        self.assertEqual(values["version"], "2.3.0")
 
     def test_generated_tag_is_not_a_build_trigger(self):
-        self.git("tag", f"v1.15-alpha.13-{self.sha}")
-        result, _ = self.run_meta(EVENT="push", REF_NAME=f"v1.15-alpha.13-{self.sha}")
+        self.git("tag", f"v1.15.0-alpha.13-{self.sha}")
+        result, _ = self.run_meta(EVENT="push", REF_NAME=f"v1.15.0-alpha.13-{self.sha}")
         self.assertNotEqual(result.returncode, 0)
         self.assertIn("release identifiers", result.stderr)
 

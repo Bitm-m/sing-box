@@ -47,21 +47,21 @@ else
   SKIP_GUI=true
 fi
 
-# Keep the full upstream version for the embedded kernel and client package
-# versions. The display/artifact version omits only a zero patch component.
+# Keep the full upstream version, including a zero patch component, for the
+# embedded kernel, the generated tag and every artifact name.
 VERSION="${VERSION%%-xiaobaf14g.*}"
 VERSION="${VERSION%%-auto.*}"
 if [[ -z "$VERSION" ]]; then
   echo '::error::Release version is empty after removing build suffix.' >&2
   exit 1
 fi
-DISPLAY_VERSION="$VERSION"
-if [[ "$DISPLAY_VERSION" =~ ^([0-9]+\.[0-9]+)\.0(-|$)(.*)$ ]]; then
-  DISPLAY_VERSION="${BASH_REMATCH[1]}${BASH_REMATCH[2]}${BASH_REMATCH[3]}"
+# Complete a version that omits its patch component, e.g. 1.15 -> 1.15.0.
+if [[ "$VERSION" =~ ^([0-9]+)\.([0-9]+)([-+].*)?$ ]]; then
+  VERSION="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.0${BASH_REMATCH[3]}"
 fi
 COMMIT=$(git rev-parse --verify HEAD^{commit})
 SHORT_COMMIT="${COMMIT:0:9}"
-ARTIFACT_VERSION="${DISPLAY_VERSION}-${SHORT_COMMIT}"
+ARTIFACT_VERSION="${VERSION}-${SHORT_COMMIT}"
 TAG="v${ARTIFACT_VERSION}"
 if ! git check-ref-format "refs/tags/$TAG"; then
   echo '::error::Invalid derived release tag.' >&2
