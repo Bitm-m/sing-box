@@ -8,7 +8,7 @@ import textwrap
 import unittest
 
 WORKFLOW = Path(__file__).resolve().parents[1] / "workflows" / "xiaobaf14g-release.yml"
-ARTIFACT_VERSION = "1.15-alpha.13-149ad84c8"
+ARTIFACT_VERSION = "1.15.0-alpha.13-149ad84c8"
 VERSION = "1.15.0-alpha.13"
 
 
